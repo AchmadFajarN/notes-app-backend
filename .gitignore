@@ -3,4 +3,5 @@ node_modules/
 
 # optional
 .env
+.production.env
 dist/
