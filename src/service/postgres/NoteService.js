@@ -6,8 +6,9 @@ const AuthorizationError = require('../../exeptions/AuthorizationError');
 const { mapDBToModel } = require('../../utils');
 
 class NoteService {
-  constructor() {
+  constructor(collaboratoService) {
     this._pool = new Pool();
+    this.collaboratorService = collaboratoService;
   }
 
   // Menambah catatan ke database
@@ -33,7 +34,10 @@ class NoteService {
   // Mengakses semua catatan di database
   async getAllNote(owner) {
     const query = {
-      text: 'SELECT * FROM notes WHERE owner = $1',
+      text: `SELECT notes.* FROM notes
+    LEFT JOIN collaborations ON collaborations.note_id = notes.id
+    WHERE notes.owner = $1 OR collaborations.user_id = $1
+    GROUP BY notes.id`,
       values: [owner]
     };
     const result = await this._pool.query(query);
@@ -44,7 +48,10 @@ class NoteService {
   // Mendapatkan catatan berdasarkan id
   async getNoteById(id) {
     const query = {
-      text: 'SELECT * FROM notes WHERE id = $1',
+      text: `SELECT notes.*, users.username 
+      FROM notes 
+      LEFT JOIN users ON users.id = notes.owner
+      WHERE notes.id = $1`,
       values: [id]
     };
     const result = await this._pool.query(query);
@@ -52,7 +59,6 @@ class NoteService {
     if (!result.rows[0]) {
       throw new NotFoundError('Catatan tidak ditemukan');
     }
-
     return result.rows[0];
   }
 
@@ -94,6 +100,7 @@ class NoteService {
     const result = await this._pool.query(query);
 
     if (!result.rows.length) {
+      console.log(result.rows);
       throw new NotFoundError('Catatan tidak ditemukan');
     }
 
@@ -101,6 +108,25 @@ class NoteService {
 
     if (note.owner !== owner) {
       throw new AuthorizationError('Anda tidak berhak mengakses resource ini');
+    }
+  }
+
+  // verify access note
+  async verifyNoteAcces(noteId, userId) {
+    try {
+      await this.verifyNoteOwner(noteId, userId);
+    } catch (err) {
+
+      if (err instanceof NotFoundError) {
+        throw err;
+      }
+
+      try {
+        await this.collaboratorService.verifyCollaborator(noteId, userId);
+
+      } catch {
+        throw err;
+      }
     }
   }
 }
