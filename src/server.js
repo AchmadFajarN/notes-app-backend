@@ -2,7 +2,9 @@
 require('dotenv').config();
 
 const Hapi = require('@hapi/hapi');
+const Innert = require('@hapi/inert');
 const Jwt = require('@hapi/jwt');
+const path = require('path');
 
 // notes
 const notes = require('./api/notes');
@@ -31,11 +33,17 @@ const _exports = require('./api/exports');
 const ProducerService = require('./service/rabbitMq/ProducerService');
 const ExportValidator = require('./validator/exports');
 
+// uploads
+const uploads = require('./api/uploads');
+const StorageService = require('./service/postgres/StorageService');
+const uploadsValidator = require('./validator/uploads');
+
 const init = async () => {
   const collaborationService = new CollaboratorService();
   const noteService = new NoteService(collaborationService);
   const userService = new UserService();
   const authenticationsService = new AuthenticationsService();
+  const storageService = new StorageService(path.resolve(__dirname, 'api/uploads/file/images'));
 
   const server = Hapi.server({
     port: process.env.PORT,
@@ -49,7 +57,10 @@ const init = async () => {
 
   await server.register([
     {
-      plugin: Jwt
+      plugin: Jwt,
+    },
+    {
+      plugin: Innert,
     }
   ]);
 
@@ -106,6 +117,13 @@ const init = async () => {
       options: {
         service: ProducerService,
         validator: ExportValidator
+      }
+    },
+    {
+      plugin: uploads,
+      options: {
+        service: storageService,
+        validator: uploadsValidator
       }
     }
   ]);
