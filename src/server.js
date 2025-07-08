@@ -38,9 +38,13 @@ const uploads = require('./api/uploads');
 const StorageService = require('./service/postgres/StorageService');
 const uploadsValidator = require('./validator/uploads');
 
+// cache
+const CacheService = require('./service/postgres/CacheService');
+
 const init = async () => {
-  const collaborationService = new CollaboratorService();
-  const noteService = new NoteService(collaborationService);
+  const cacheService = new CacheService();
+  const collaborationService = new CollaboratorService(cacheService);
+  const noteService = new NoteService(collaborationService, cacheService);
   const userService = new UserService();
   const authenticationsService = new AuthenticationsService();
   const storageService = new StorageService(path.resolve(__dirname, 'api/uploads/file/images'));
